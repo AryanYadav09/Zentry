@@ -2,8 +2,8 @@ import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 import { useRef } from "react";
 
-const MAX_TRANSLATE = 16;
-const MAX_ROTATE = 8;
+const MAX_TRANSLATE = 24;
+const MAX_ROTATE = 10;
 
 export const VideoPreview = ({ children }) => {
   const sectionRef = useRef(null);
@@ -13,6 +13,7 @@ export const VideoPreview = ({ children }) => {
   const moveYToRef = useRef(null);
   const rotateXToRef = useRef(null);
   const rotateYToRef = useRef(null);
+  const scaleToRef = useRef(null);
   const contentXToRef = useRef(null);
   const contentYToRef = useRef(null);
 
@@ -23,6 +24,7 @@ export const VideoPreview = ({ children }) => {
       gsap.set(sectionRef.current, {
         transformPerspective: 600,
         transformStyle: "preserve-3d",
+        transformOrigin: "center center",
         willChange: "transform",
       });
       gsap.set(contentRef.current, {
@@ -43,6 +45,10 @@ export const VideoPreview = ({ children }) => {
         ease: "power3.out",
       });
       rotateYToRef.current = gsap.quickTo(sectionRef.current, "rotationY", {
+        duration: 0.35,
+        ease: "power3.out",
+      });
+      scaleToRef.current = gsap.quickTo(sectionRef.current, "scale", {
         duration: 0.35,
         ease: "power3.out",
       });
@@ -75,6 +81,7 @@ export const VideoPreview = ({ children }) => {
     moveYToRef.current?.(offsetY);
     rotateYToRef.current?.(clampedX * MAX_ROTATE);
     rotateXToRef.current?.(-clampedY * MAX_ROTATE);
+    scaleToRef.current?.(1.03);
 
     // Opposing inner motion creates a subtle parallax depth effect.
     contentXToRef.current?.(-offsetX * 0.6);
@@ -86,6 +93,7 @@ export const VideoPreview = ({ children }) => {
     moveYToRef.current?.(0);
     rotateXToRef.current?.(0);
     rotateYToRef.current?.(0);
+    scaleToRef.current?.(1);
     contentXToRef.current?.(0);
     contentYToRef.current?.(0);
   };

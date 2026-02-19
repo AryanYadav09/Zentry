@@ -12,8 +12,8 @@ gsap.registerPlugin(ScrollTrigger);
 
 const Hero = () => {
   const navigate = useNavigate();
-  const [currentIndex, setCurrentIndex] = useState(1);
-  const [hasClicked, setHasClicked] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(1);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [loadedVideos, setLoadedVideos] = useState(0);
@@ -22,12 +22,21 @@ const Hero = () => {
   const initialVideoLoadCount = 3;
   const heroRef = useRef(null);
   const frameRef = useRef(null);
-  const nextVideoRef = useRef(null);
-  const currentVideoRef = useRef(null);
+  const previewContainerRef = useRef(null);
+  const previewCardRef = useRef(null);
+  const transitionVideoRef = useRef(null);
+  const transitionTlRef = useRef(null);
+  const movePreviewXToRef = useRef(null);
+  const movePreviewYToRef = useRef(null);
+
+  const previewSize = 256;
 
   const handleVideoLoad = () => {
     setLoadedVideos((prev) => Math.min(prev + 1, initialVideoLoadCount));
   };
+
+  const getVideoSrc = (index) => `videos/hero-${index}.mp4`;
+  const nextPreviewIndex = (activeIndex % totalVideos) + 1;
 
   useEffect(() => {
     if (loadedVideos >= initialVideoLoadCount) {
@@ -35,56 +44,128 @@ const Hero = () => {
     }
   }, [loadedVideos, initialVideoLoadCount]);
 
-  const handleMiniVdClick = () => {
-    setHasClicked(true);
+  useEffect(
+    () => () => {
+      transitionTlRef.current?.kill();
+    },
+    []
+  );
 
-    setCurrentIndex((prevIndex) => (prevIndex % totalVideos) + 1);
+  useGSAP(
+    () => {
+      if (!frameRef.current || !previewContainerRef.current) return;
+
+      const initialX = (frameRef.current.clientWidth - previewSize) / 2;
+      const initialY = (frameRef.current.clientHeight - previewSize) / 2;
+
+      gsap.set(previewContainerRef.current, {
+        x: initialX,
+        y: initialY,
+      });
+
+      movePreviewXToRef.current = gsap.quickTo(previewContainerRef.current, "x", {
+        duration: 0.45,
+        ease: "power3.out",
+      });
+      movePreviewYToRef.current = gsap.quickTo(previewContainerRef.current, "y", {
+        duration: 0.45,
+        ease: "power3.out",
+      });
+    },
+    { scope: heroRef }
+  );
+
+  const handleFrameMouseMove = (event) => {
+    if (isTransitioning || !frameRef.current || !previewContainerRef.current) return;
+
+    const rect = frameRef.current.getBoundingClientRect();
+    const maxX = Math.max(rect.width - previewSize, 0);
+    const maxY = Math.max(rect.height - previewSize, 0);
+
+    const targetX = gsap.utils.clamp(
+      0,
+      maxX,
+      event.clientX - rect.left - previewSize / 2
+    );
+    const targetY = gsap.utils.clamp(
+      0,
+      maxY,
+      event.clientY - rect.top - previewSize / 2
+    );
+
+    movePreviewXToRef.current?.(targetX);
+    movePreviewYToRef.current?.(targetY);
+  };
+
+  const handleMiniVdClick = () => {
+    if (
+      isTransitioning ||
+      !previewCardRef.current ||
+      !transitionVideoRef.current ||
+      !frameRef.current
+    ) {
+      return;
+    }
+
+    setIsTransitioning(true);
+
+    const previewRect = previewCardRef.current.getBoundingClientRect();
+    const frameRect = frameRef.current.getBoundingClientRect();
+    const startX = previewRect.left - frameRect.left;
+    const startY = previewRect.top - frameRect.top;
+    const transitionVideoEl = transitionVideoRef.current;
+
+    transitionTlRef.current?.kill();
+    gsap.killTweensOf([transitionVideoEl, previewCardRef.current]);
+
+    gsap.set(transitionVideoEl, {
+      autoAlpha: 1,
+      x: startX,
+      y: startY,
+      width: previewRect.width,
+      height: previewRect.height,
+      borderRadius: 12,
+      transformOrigin: "top left",
+    });
+
+    transitionVideoEl.currentTime = 0;
+
+    const tl = gsap.timeline({
+      defaults: { ease: "power3.inOut" },
+      onStart: () => {
+        gsap.set(previewCardRef.current, { autoAlpha: 0 });
+        transitionVideoEl.play().catch(() => {});
+      },
+      onComplete: () => {
+        setActiveIndex(nextPreviewIndex);
+        setIsTransitioning(false);
+
+        gsap.set(transitionVideoEl, {
+          autoAlpha: 0,
+          clearProps:
+            "x,y,width,height,borderRadius,transformOrigin,transform",
+        });
+        gsap.set(previewCardRef.current, {
+          clearProps: "scale,autoAlpha,transform,visibility,opacity",
+        });
+      },
+    });
+
+    tl.to(transitionVideoEl, {
+      x: 0,
+      y: 0,
+      width: "100%",
+      height: "100%",
+      borderRadius: 0,
+      duration: 0.95,
+    });
+
+    transitionTlRef.current = tl;
   };
 
   const handleExploreGamesClick = () => {
     navigate("/games");
   };
-
-  useGSAP(
-    () => {
-      if (!hasClicked || !nextVideoRef.current || !currentVideoRef.current) {
-        return;
-      }
-
-      gsap.killTweensOf([nextVideoRef.current, currentVideoRef.current]);
-
-      const transitionTl = gsap.timeline({
-        defaults: { ease: "power2.inOut" },
-      });
-
-      transitionTl
-        .set(nextVideoRef.current, {
-          autoAlpha: 1,
-          scale: 0.7,
-          transformOrigin: "center center",
-        })
-        .to(nextVideoRef.current, {
-          width: "100%",
-          height: "100%",
-          scale: 1,
-          duration: 0.9,
-          onStart: () => {
-            nextVideoRef.current?.play()?.catch(() => {});
-          },
-        })
-        .fromTo(
-          currentVideoRef.current,
-          { scale: 1, transformOrigin: "center center" },
-          { scale: 0, duration: 0.9 },
-          0
-        );
-    },
-    {
-      scope: heroRef,
-      dependencies: [currentIndex, hasClicked],
-      revertOnUpdate: true,
-    }
-  );
 
   useGSAP(
     () => {
@@ -113,8 +194,6 @@ const Hero = () => {
     { scope: heroRef }
   );
 
-  const getVideoSrc = (index) => `videos/hero-${index}.mp4`;
-
   return (
     <div ref={heroRef} className="relative h-dvh w-screen overflow-x-hidden">
       {loading && (
@@ -130,44 +209,51 @@ const Hero = () => {
 
       <div
         ref={frameRef}
+        onMouseMove={handleFrameMouseMove}
         id="video-frame"
         className="relative z-10 h-dvh w-screen overflow-hidden rounded-lg bg-blue-75"
       >
         <div>
-          <div className="mask-clip-path absolute-center absolute z-50 size-64 cursor-pointer overflow-hidden rounded-lg">
+          <div ref={previewContainerRef} className="absolute left-0 top-0 z-50 size-64">
             <VideoPreview>
-              <div
+              <button
+                type="button"
+                ref={previewCardRef}
                 onClick={handleMiniVdClick}
-                className="origin-center scale-50 opacity-0 transition-all duration-500 ease-in hover:scale-100 hover:opacity-100"
+                disabled={isTransitioning}
+                className="block size-full overflow-hidden rounded-xl border border-white/20 bg-black/45 p-0 leading-none shadow-[0_18px_45px_rgba(0,0,0,0.4)] backdrop-blur-sm transition-transform duration-500 hover:scale-[1.02] disabled:cursor-wait"
+                aria-label="Play next video"
               >
                 <video
-                  ref={currentVideoRef}
-                  src={getVideoSrc((currentIndex % totalVideos) + 1)}
+                  src={getVideoSrc(nextPreviewIndex)}
+                  autoPlay
                   loop
                   muted
-                  className="size-64 origin-center scale-150 object-cover object-center"
+                  playsInline
+                  className="block size-full object-cover object-center"
                   onLoadedData={handleVideoLoad}
                 />
-              </div>
+              </button>
             </VideoPreview>
           </div>
 
           <video
-            ref={nextVideoRef}
-            src={getVideoSrc(currentIndex)}
+            ref={transitionVideoRef}
+            src={getVideoSrc(nextPreviewIndex)}
             loop
             muted
-            className="absolute-center absolute z-20 size-64 object-cover object-center opacity-0"
+            playsInline
+            className="pointer-events-none absolute left-0 top-0 z-30 block size-64 object-cover object-center opacity-0"
             onLoadedData={handleVideoLoad}
           />
           <video
-            src={getVideoSrc(
-              currentIndex === totalVideos - 1 ? 1 : currentIndex
-            )}
+            key={activeIndex}
+            src={getVideoSrc(activeIndex)}
             autoPlay
             loop
             muted
-            className="absolute left-0 top-0 size-full object-cover object-center"
+            playsInline
+            className="absolute left-0 top-0 block size-full object-cover object-center"
             onLoadedData={handleVideoLoad}
           />
         </div>
