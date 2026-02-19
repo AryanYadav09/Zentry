@@ -6,6 +6,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
   signInWithPopup,
+  signInWithRedirect,
   updateProfile,
 } from "firebase/auth";
 import { BsMicrosoft } from "react-icons/bs";
@@ -82,6 +83,43 @@ const mapFirebasePhoneError = (error) => {
   }
 };
 
+const mapFirebaseGoogleError = (error) => {
+  const code = error?.code || "";
+
+  switch (code) {
+    case "auth/operation-not-allowed":
+      return "Google sign-in is disabled in Firebase Authentication > Sign-in method.";
+    case "auth/unauthorized-domain":
+      return "Current domain is not authorized. Add your Vercel domain in Firebase Authentication > Settings > Authorized domains.";
+    case "auth/invalid-api-key":
+      return "Invalid Firebase API key. Recheck Vercel env values and redeploy.";
+    case "auth/app-not-authorized":
+      return "App is not authorized for Firebase Auth. Recheck Firebase web app config.";
+    case "auth/network-request-failed":
+      return "Network request failed. Check internet, VPN, or ad blockers.";
+    case "auth/popup-blocked":
+      return "Popup was blocked by your browser. Allow popups or use redirect sign-in.";
+    case "auth/popup-closed-by-user":
+      return "Google popup was closed before completing sign-in.";
+    case "auth/operation-not-supported-in-this-environment":
+      return "Popup sign-in is not supported in this browser. Using redirect flow works better.";
+    case "auth/cancelled-popup-request":
+      return "A previous popup request was interrupted. Try once again.";
+    default:
+      return `${code || "auth/unknown"}: ${
+        error?.message || "Google authentication failed."
+      }`;
+  }
+};
+
+const shouldUseRedirectFlow = () => {
+  if (typeof navigator === "undefined") return false;
+
+  return /android|iphone|ipad|ipod|iemobile|opera mini/i.test(
+    navigator.userAgent
+  );
+};
+
 const LoginPage = () => {
   const navigate = useNavigate();
   const recaptchaRef = useRef(null);
@@ -141,10 +179,30 @@ const LoginPage = () => {
     try {
       setIsLoading(true);
       setStatus("");
+
+      if (shouldUseRedirectFlow()) {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
+
       await signInWithPopup(auth, googleProvider);
       navigate("/", { replace: true });
     } catch (error) {
-      setStatus(error.message || "Google login failed.");
+      if (
+        error?.code === "auth/popup-blocked" ||
+        error?.code === "auth/operation-not-supported-in-this-environment"
+      ) {
+        try {
+          setStatus("Popup blocked. Redirecting to Google sign-in...");
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectError) {
+          setStatus(mapFirebaseGoogleError(redirectError));
+          return;
+        }
+      }
+
+      setStatus(mapFirebaseGoogleError(error));
     } finally {
       setIsLoading(false);
     }
