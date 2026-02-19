@@ -221,7 +221,7 @@ const Hero = () => {
                 ref={previewCardRef}
                 onClick={handleMiniVdClick}
                 disabled={isTransitioning}
-                className="block size-full overflow-hidden rounded-xl border border-white/20 bg-black/45 p-0 leading-none shadow-[0_18px_45px_rgba(0,0,0,0.4)] backdrop-blur-sm transition-transform duration-500 hover:scale-[1.02] disabled:cursor-wait"
+                className="block size-full overflow-hidden rounded-xl border border-white/20 bg-black/45 p-0 leading-none backdrop-blur-sm transition-transform duration-500 hover:scale-[1.02] disabled:cursor-wait"
                 aria-label="Play next video"
               >
                 <video
