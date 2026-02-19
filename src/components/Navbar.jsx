@@ -124,11 +124,17 @@ const NavBar = () => {
 
           <div className="flex h-full items-center">
             <div className="hidden md:block">
-              {navItems.map((item, index) => (
-                <a key={index} href={item.href} className="nav-hover-btn">
-                  {item.label}
-                </a>
-              ))}
+              {navItems.map((item) =>
+                item.href.includes("#") ? (
+                  <a key={item.label} href={item.href} className="nav-hover-btn">
+                    {item.label}
+                  </a>
+                ) : (
+                  <Link key={item.label} to={item.href} className="nav-hover-btn">
+                    {item.label}
+                  </Link>
+                )
+              )}
             </div>
 
             <button
