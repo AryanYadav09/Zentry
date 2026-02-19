@@ -1,9 +1,39 @@
-import { useState, useRef } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+import { useRef, useState } from "react";
 import { TiLocationArrow } from "react-icons/ti";
 
 export const BentoTilt = ({ children, className = "" }) => {
-  const [transformStyle, setTransformStyle] = useState("");
   const itemRef = useRef(null);
+  const rotateXToRef = useRef(null);
+  const rotateYToRef = useRef(null);
+  const scaleToRef = useRef(null);
+
+  useGSAP(
+    () => {
+      if (!itemRef.current) return;
+
+      gsap.set(itemRef.current, {
+        transformPerspective: 700,
+        transformStyle: "preserve-3d",
+        willChange: "transform",
+      });
+
+      rotateXToRef.current = gsap.quickTo(itemRef.current, "rotationX", {
+        duration: 0.25,
+        ease: "power3.out",
+      });
+      rotateYToRef.current = gsap.quickTo(itemRef.current, "rotationY", {
+        duration: 0.25,
+        ease: "power3.out",
+      });
+      scaleToRef.current = gsap.quickTo(itemRef.current, "scale", {
+        duration: 0.25,
+        ease: "power3.out",
+      });
+    },
+    { scope: itemRef }
+  );
 
   const handleMouseMove = (event) => {
     if (!itemRef.current) return;
@@ -14,15 +44,18 @@ export const BentoTilt = ({ children, className = "" }) => {
     const relativeX = (event.clientX - left) / width;
     const relativeY = (event.clientY - top) / height;
 
-    const tiltX = (relativeY - 0.5) * 5;
-    const tiltY = (relativeX - 0.5) * -5;
+    const tiltX = gsap.utils.clamp(-1, 1, relativeY - 0.5) * 8;
+    const tiltY = gsap.utils.clamp(-1, 1, relativeX - 0.5) * -8;
 
-    const newTransform = `perspective(700px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale3d(.95, .95, .95)`;
-    setTransformStyle(newTransform);
+    rotateXToRef.current?.(tiltX);
+    rotateYToRef.current?.(tiltY);
+    scaleToRef.current?.(0.97);
   };
 
   const handleMouseLeave = () => {
-    setTransformStyle("");
+    rotateXToRef.current?.(0);
+    rotateYToRef.current?.(0);
+    scaleToRef.current?.(1);
   };
 
   return (
@@ -31,7 +64,6 @@ export const BentoTilt = ({ children, className = "" }) => {
       className={className}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      style={{ transform: transformStyle }}
     >
       {children}
     </div>

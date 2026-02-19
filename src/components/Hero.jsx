@@ -3,6 +3,7 @@ import { useGSAP } from "@gsap/react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { TiLocationArrow } from "react-icons/ti";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import Button from "./Button";
 import VideoPreview from "./VideoPreview";
@@ -10,6 +11,7 @@ import VideoPreview from "./VideoPreview";
 gsap.registerPlugin(ScrollTrigger);
 
 const Hero = () => {
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(1);
   const [hasClicked, setHasClicked] = useState(false);
 
@@ -37,6 +39,10 @@ const Hero = () => {
     setHasClicked(true);
 
     setCurrentIndex((prevIndex) => (prevIndex % totalVideos) + 1);
+  };
+
+  const handleExploreGamesClick = () => {
+    navigate("/games");
   };
 
   useGSAP(
@@ -181,10 +187,11 @@ const Hero = () => {
             </p>
 
             <Button
-              id="watch-trailer"
-              title="Watch trailer"
+              id="explore-games"
+              title="Explore games"
               leftIcon={<TiLocationArrow />}
               containerClass="bg-yellow-300 flex-center gap-1"
+              onClick={handleExploreGamesClick}
             />
           </div>
         </div>

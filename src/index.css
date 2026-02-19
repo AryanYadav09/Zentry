@@ -16,6 +16,12 @@ body {
   font-family: "General Sans", sans-serif;
 }
 
+/* Keep only button text at xs size globally */
+button {
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+}
+
 @layer base {
   @font-face {
     font-family: "circular-web";

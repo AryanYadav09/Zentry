@@ -1,18 +1,46 @@
 import clsx from "clsx";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
-import { useEffect, useRef, useState } from "react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TiLocationArrow } from "react-icons/ti";
 
+import { auth } from "../lib/firebase";
 import Button from "./Button";
 
-const navItems = ["Nexus", "Vault", "Prologue", "About", "Contact"];
+const baseNavItems = [
+  { label: "Home", href: "/" },
+  { label: "About", href: "/#about" },
+  { label: "Games", href: "/games" },
+  { label: "Contact", href: "/#contact" },
+];
 
 const NavBar = () => {
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const audioElementRef = useRef(null);
   const navContainerRef = useRef(null);
+
+  useEffect(() => {
+    if (!auth) return undefined;
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const navItems = useMemo(() => {
+    if (currentUser) return baseNavItems;
+    return [...baseNavItems, { label: "Login", href: "/login" }];
+  }, [currentUser]);
+
+  const profileLabel =
+    currentUser?.displayName?.trim()?.[0] ||
+    currentUser?.email?.trim()?.[0] ||
+    "U";
 
   const toggleAudioIndicator = () => {
     setIsAudioPlaying((prev) => !prev);
@@ -53,6 +81,11 @@ const NavBar = () => {
     { scope: navContainerRef }
   );
 
+  const handleSignOut = async () => {
+    if (!auth) return;
+    await signOut(auth);
+  };
+
   return (
     <div
       ref={navContainerRef}
@@ -74,19 +107,30 @@ const NavBar = () => {
           <div className="flex h-full items-center">
             <div className="hidden md:block">
               {navItems.map((item, index) => (
-                <a
-                  key={index}
-                  href={`#${item.toLowerCase()}`}
-                  className="nav-hover-btn"
-                >
-                  {item}
+                <a key={index} href={item.href} className="nav-hover-btn">
+                  {item.label}
                 </a>
               ))}
             </div>
 
+            {currentUser && (
+              <div className="ml-6 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="size-9 rounded-full border border-white/30 bg-white/10 text-sm uppercase text-white"
+                  title={`Signed in as ${
+                    currentUser.email || currentUser.phoneNumber || "user"
+                  }. Click to sign out.`}
+                >
+                  {profileLabel}
+                </button>
+              </div>
+            )}
+
             <button
               onClick={toggleAudioIndicator}
-              className="ml-10 flex items-center space-x-0.5"
+              className="ml-4 flex items-center space-x-0.5"
               aria-label="toggle background audio"
             >
               <audio
