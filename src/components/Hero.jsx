@@ -263,7 +263,7 @@ const Hero = () => {
         </h1>
 
         <div className="pointer-events-none absolute left-0 top-0 z-[60] size-full">
-          <div className="pointer-events-auto mt-24 px-5 sm:px-10">
+          <div className="mt-24 px-5 sm:px-10">
             <h1 className="special-font hero-heading text-blue-100">
               redefi<b>n</b>e
             </h1>
@@ -276,7 +276,7 @@ const Hero = () => {
               id="explore-games"
               title="Explore games"
               leftIcon={<TiLocationArrow />}
-              containerClass="bg-yellow-300 flex-center gap-1"
+              containerClass="pointer-events-auto bg-yellow-300 flex-center gap-1"
               onClick={handleExploreGamesClick}
             />
           </div>
