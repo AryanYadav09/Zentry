@@ -1,6 +1,8 @@
 import emailjs from "@emailjs/browser";
-import { useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { useEffect, useState } from "react";
 
+import { auth } from "../lib/firebase";
 import AnimatedTitle from "./AnimatedTitle";
 
 const RECEIVER_EMAIL = "aryanydv223@gmail.com";
@@ -19,6 +21,7 @@ const ImageClipBox = ({ src, clipClass }) => (
 
 const Contact = () => {
   const [senderEmail, setSenderEmail] = useState("");
+  const [senderName, setSenderName] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -27,11 +30,35 @@ const Contact = () => {
   const templateId = normalizeEnvValue(import.meta.env.VITE_EMAILJS_TEMPLATE_ID);
   const publicKey = normalizeEnvValue(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
 
+  useEffect(() => {
+    if (!auth) return undefined;
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      const email = user?.email?.trim() || "";
+      const name = user?.displayName?.trim() || "";
+
+      setSenderEmail(email);
+      setSenderName(name || email);
+      setStatus("");
+    });
+
+    return unsubscribe;
+  }, []);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    const normalizedSenderEmail = senderEmail.trim();
+
     if (!serviceId || !templateId || !publicKey) {
       setStatus("Email service is not configured. Add EmailJS keys in .env.");
+      return;
+    }
+
+    if (!normalizedSenderEmail) {
+      setStatus(
+        "Login with Google or Email/Password first. Sender email is taken from your logged-in account."
+      );
       return;
     }
 
@@ -44,8 +71,10 @@ const Contact = () => {
         templateId,
         {
           to_email: RECEIVER_EMAIL,
-          from_email: senderEmail,
-          reply_to: senderEmail,
+          from_email: normalizedSenderEmail,
+          user_email: normalizedSenderEmail,
+          from_name: senderName || normalizedSenderEmail,
+          reply_to: normalizedSenderEmail,
           message,
         },
         {
@@ -54,7 +83,6 @@ const Contact = () => {
       );
 
       setStatus("Message sent successfully.");
-      setSenderEmail("");
       setMessage("");
     } catch (error) {
       const details =
@@ -95,16 +123,18 @@ const Contact = () => {
           >
             <label className="block">
               <span className="mb-2 block font-general text-sm uppercase text-blue-50/80 md:text-base">
-                Your Gmail ID
+                Logged-in Email
               </span>
               <input
                 type="email"
                 className={inputClass}
-                placeholder="you@gmail.com"
+                placeholder="Login required"
                 value={senderEmail}
-                onChange={(event) => setSenderEmail(event.target.value)}
-                required
+                readOnly
               />
+              <p className="mt-2 font-circular-web text-xs text-blue-50/60 md:text-sm">
+                This is auto-filled from your Firebase login account.
+              </p>
             </label>
 
             <label className="block">
@@ -122,10 +152,14 @@ const Contact = () => {
 
             <button
               type="submit"
-              disabled={isSending}
+              disabled={isSending || !senderEmail}
               className="w-full rounded-full bg-yellow-300 px-6 py-3 font-general text-sm uppercase text-black transition-opacity disabled:opacity-60 md:text-base"
             >
-              {isSending ? "Sending..." : "Send Message"}
+              {isSending
+                ? "Sending..."
+                : senderEmail
+                  ? "Send Message"
+                  : "Login to Send"}
             </button>
 
             {status && (

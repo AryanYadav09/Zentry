@@ -1,8 +1,9 @@
 import clsx from "clsx";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { TiLocationArrow } from "react-icons/ti";
 
 import { auth } from "../lib/firebase";
@@ -81,11 +82,6 @@ const NavBar = () => {
     { scope: navContainerRef }
   );
 
-  const handleSignOut = async () => {
-    if (!auth) return;
-    await signOut(auth);
-  };
-
   return (
     <div
       ref={navContainerRef}
@@ -94,7 +90,29 @@ const NavBar = () => {
       <header className="absolute top-1/2 w-full -translate-y-1/2">
         <nav className="flex size-full items-center justify-between p-4">
           <div className="flex items-center gap-7">
-            <img src="/img/logo.png" alt="logo" className="w-10" />
+            {currentUser ? (
+              <Link
+                to="/profile"
+                className="flex items-center"
+                title="Open profile"
+                aria-label="Open profile"
+              >
+                {currentUser.photoURL ? (
+                  <img
+                    src={currentUser.photoURL}
+                    alt="profile"
+                    className="size-12 rounded-full border border-white/30 object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="flex size-12 items-center justify-center rounded-full border border-white/30 bg-white/10 text-sm uppercase text-white">
+                    {profileLabel}
+                  </div>
+                )}
+              </Link>
+            ) : (
+              <img src="/img/logo.png" alt="logo" className="w-10" />
+            )}
 
             <Button
               id="product-button"
@@ -112,21 +130,6 @@ const NavBar = () => {
                 </a>
               ))}
             </div>
-
-            {currentUser && (
-              <div className="ml-6 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="size-9 rounded-full border border-white/30 bg-white/10 text-sm uppercase text-white"
-                  title={`Signed in as ${
-                    currentUser.email || currentUser.phoneNumber || "user"
-                  }. Click to sign out.`}
-                >
-                  {profileLabel}
-                </button>
-              </div>
-            )}
 
             <button
               onClick={toggleAudioIndicator}

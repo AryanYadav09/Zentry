@@ -23,6 +23,65 @@ const inputClass =
 const providerButtonClass =
   "flex w-full items-center justify-center gap-3 rounded-full border border-white/20 bg-[#202123] px-5 py-4 text-white transition-colors hover:bg-[#2a2b30] disabled:opacity-60";
 
+const normalizePhoneNumber = (rawValue) => {
+  const trimmed = rawValue.trim().replace(/[\s()-]/g, "");
+
+  if (trimmed.startsWith("00")) {
+    return `+${trimmed.slice(2)}`;
+  }
+
+  if (!trimmed.startsWith("+")) {
+    return trimmed;
+  }
+
+  return `+${trimmed.slice(1).replace(/\+/g, "")}`;
+};
+
+const mapFirebasePhoneError = (error) => {
+  const code = error?.code || "";
+
+  switch (code) {
+    case "auth/invalid-phone-number":
+      return "Invalid phone format. Use E.164 format like +919876543210.";
+    case "auth/missing-phone-number":
+      return "Phone number is missing.";
+    case "auth/operation-not-allowed":
+      return "Phone sign-in is disabled in Firebase Console.";
+    case "auth/app-not-authorized":
+      return "This app is not authorized for Firebase Authentication. Recheck API key + authorized domain.";
+    case "auth/unauthorized-domain":
+      return "Current domain is not authorized. Add it in Firebase Authentication > Settings > Authorized domains.";
+    case "auth/captcha-check-failed":
+      return "reCAPTCHA check failed. Reload the page and try again.";
+    case "auth/missing-client-identifier":
+      return "Browser blocked reCAPTCHA storage. Disable strict tracking/ad-blockers and retry.";
+    case "auth/invalid-app-credential":
+      return "Invalid app credential. Verify your Firebase web config and authorized domain.";
+    case "auth/invalid-api-key":
+      return "Invalid Firebase API key in your .env file.";
+    case "auth/billing-not-enabled":
+      return "Billing is not enabled. Phone OTP SMS requires Blaze pay-as-you-go for real numbers.";
+    case "auth/configuration-not-found":
+      return "Phone auth configuration not found. Recheck provider settings in Firebase Authentication.";
+    case "auth/quota-exceeded":
+      return "SMS quota exceeded for today. Try later or add test numbers in Firebase.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please wait and try again.";
+    case "auth/network-request-failed":
+      return "Network blocked request. Check internet/VPN/ad-blocker and retry.";
+    case "auth/code-expired":
+      return "OTP expired. Request a new OTP.";
+    case "auth/invalid-verification-code":
+      return "Invalid OTP code. Enter the latest code sent to your phone.";
+    case "auth/session-expired":
+      return "OTP session expired. Send OTP again.";
+    default:
+      return `${code || "auth/unknown"}: ${
+        error?.message || "Phone authentication failed."
+      }`;
+  }
+};
+
 const LoginPage = () => {
   const navigate = useNavigate();
   const recaptchaRef = useRef(null);
@@ -58,15 +117,19 @@ const LoginPage = () => {
     };
   }, [navigate]);
 
-  const setupRecaptcha = () => {
-    if (!auth || recaptchaRef.current) return recaptchaRef.current;
+  const setupRecaptcha = async () => {
+    if (!auth) return null;
+    if (recaptchaRef.current) return recaptchaRef.current;
 
-    recaptchaRef.current = new RecaptchaVerifier(auth, "recaptcha-container", {
-      size: "invisible",
+    const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+      size: "normal",
+      theme: "dark",
       callback: () => {},
     });
 
-    return recaptchaRef.current;
+    await verifier.render();
+    recaptchaRef.current = verifier;
+    return verifier;
   };
 
   const handleGoogleLogin = async () => {
@@ -127,22 +190,29 @@ const LoginPage = () => {
       return;
     }
 
-    if (!phone.startsWith("+")) {
-      setStatus("Phone number must include country code, e.g. +91XXXXXXXXXX.");
+    const normalizedPhone = normalizePhoneNumber(phone);
+
+    if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
+      setStatus("Phone must be in E.164 format, e.g. +91XXXXXXXXXX.");
       return;
     }
 
     try {
       setIsLoading(true);
       setStatus("");
+      setPhone(normalizedPhone);
 
-      const verifier = setupRecaptcha();
-      const result = await signInWithPhoneNumber(auth, phone, verifier);
+      const verifier = await setupRecaptcha();
+      const result = await signInWithPhoneNumber(auth, normalizedPhone, verifier);
 
       setConfirmationResult(result);
       setStatus("OTP sent. Enter the code below.");
     } catch (error) {
-      setStatus(error.message || "Failed to send OTP.");
+      setStatus(mapFirebasePhoneError(error));
+      if (recaptchaRef.current && error?.code !== "auth/too-many-requests") {
+        recaptchaRef.current.clear();
+        recaptchaRef.current = null;
+      }
     } finally {
       setIsLoading(false);
     }
@@ -160,7 +230,7 @@ const LoginPage = () => {
       await confirmationResult.confirm(otp);
       navigate("/", { replace: true });
     } catch (error) {
-      setStatus(error.message || "Invalid OTP.");
+      setStatus(mapFirebasePhoneError(error));
     } finally {
       setIsLoading(false);
     }
@@ -235,6 +305,10 @@ const LoginPage = () => {
               onChange={(event) => setPhone(event.target.value)}
               className={inputClass}
             />
+            <p className="px-1 text-xs text-white/60">
+              Use full number with country code. Example: +91XXXXXXXXXX.
+              Spark plan can only use Firebase test numbers for phone auth.
+            </p>
 
             <button
               type="button"
@@ -261,6 +335,8 @@ const LoginPage = () => {
             >
               Verify OTP
             </button>
+
+            <div id="recaptcha-container" className="mt-1" />
           </div>
         )}
 
@@ -324,7 +400,6 @@ const LoginPage = () => {
           </p>
         )}
 
-        <div id="recaptcha-container" />
       </div>
     </main>
   );
