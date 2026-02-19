@@ -1,80 +1,103 @@
 import { gsap } from "gsap";
-import { useState, useRef, useEffect } from "react";
+import { useGSAP } from "@gsap/react";
+import { useRef } from "react";
+
+const MAX_TRANSLATE = 16;
+const MAX_ROTATE = 8;
 
 export const VideoPreview = ({ children }) => {
-  const [isHovering, setIsHovering] = useState(false);
+  const sectionRef = useRef(null);
+  const contentRef = useRef(null);
 
-  const sectionRef = useRef(null); // Reference for the container section
-  const contentRef = useRef(null); // Reference for the inner content
+  const moveXToRef = useRef(null);
+  const moveYToRef = useRef(null);
+  const rotateXToRef = useRef(null);
+  const rotateYToRef = useRef(null);
+  const contentXToRef = useRef(null);
+  const contentYToRef = useRef(null);
 
-  // Handles mouse movement over the container
+  useGSAP(
+    () => {
+      if (!sectionRef.current || !contentRef.current) return;
+
+      gsap.set(sectionRef.current, {
+        transformPerspective: 600,
+        transformStyle: "preserve-3d",
+        willChange: "transform",
+      });
+      gsap.set(contentRef.current, {
+        transformStyle: "preserve-3d",
+        willChange: "transform",
+      });
+
+      moveXToRef.current = gsap.quickTo(sectionRef.current, "x", {
+        duration: 0.35,
+        ease: "power3.out",
+      });
+      moveYToRef.current = gsap.quickTo(sectionRef.current, "y", {
+        duration: 0.35,
+        ease: "power3.out",
+      });
+      rotateXToRef.current = gsap.quickTo(sectionRef.current, "rotationX", {
+        duration: 0.35,
+        ease: "power3.out",
+      });
+      rotateYToRef.current = gsap.quickTo(sectionRef.current, "rotationY", {
+        duration: 0.35,
+        ease: "power3.out",
+      });
+      contentXToRef.current = gsap.quickTo(contentRef.current, "x", {
+        duration: 0.4,
+        ease: "power3.out",
+      });
+      contentYToRef.current = gsap.quickTo(contentRef.current, "y", {
+        duration: 0.4,
+        ease: "power3.out",
+      });
+    },
+    { scope: sectionRef }
+  );
+
   const handleMouseMove = ({ clientX, clientY, currentTarget }) => {
-    const rect = currentTarget.getBoundingClientRect(); // Get dimensions of the container
+    const rect = currentTarget.getBoundingClientRect();
 
-    const xOffset = clientX - (rect.left + rect.width / 2); // Calculate X offset
-    const yOffset = clientY - (rect.top + rect.height / 2); // Calculate Y offset
+    const relativeX = (clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
+    const relativeY =
+      (clientY - (rect.top + rect.height / 2)) / (rect.height / 2);
 
-    if (isHovering) {
-      // Move the container slightly in the direction of the cursor
-      gsap.to(sectionRef.current, {
-        x: xOffset,
-        y: yOffset,
-        rotationY: xOffset / 2, // Add 3D rotation effect
-        rotationX: -yOffset / 2,
-        transformPerspective: 500, // Perspective for realistic 3D effect
-        duration: 1,
-        ease: "power1.out",
-      });
+    const clampedX = gsap.utils.clamp(-1, 1, relativeX);
+    const clampedY = gsap.utils.clamp(-1, 1, relativeY);
 
-      // Move the inner content in the opposite direction for a parallax effect
-      gsap.to(contentRef.current, {
-        x: -xOffset,
-        y: -yOffset,
-        duration: 1,
-        ease: "power1.out",
-      });
-    }
+    const offsetX = clampedX * MAX_TRANSLATE;
+    const offsetY = clampedY * MAX_TRANSLATE;
+
+    moveXToRef.current?.(offsetX);
+    moveYToRef.current?.(offsetY);
+    rotateYToRef.current?.(clampedX * MAX_ROTATE);
+    rotateXToRef.current?.(-clampedY * MAX_ROTATE);
+
+    // Opposing inner motion creates a subtle parallax depth effect.
+    contentXToRef.current?.(-offsetX * 0.6);
+    contentYToRef.current?.(-offsetY * 0.6);
   };
 
-  useEffect(() => {
-    // Reset the position of the content when hover ends
-    if (!isHovering) {
-      gsap.to(sectionRef.current, {
-        x: 0,
-        y: 0,
-        rotationY: 0,
-        rotationX: 0,
-        duration: 1,
-        ease: "power1.out",
-      });
-
-      gsap.to(contentRef.current, {
-        x: 0,
-        y: 0,
-        duration: 1,
-        ease: "power1.out",
-      });
-    }
-  }, [isHovering]);
+  const handleMouseLeave = () => {
+    moveXToRef.current?.(0);
+    moveYToRef.current?.(0);
+    rotateXToRef.current?.(0);
+    rotateYToRef.current?.(0);
+    contentXToRef.current?.(0);
+    contentYToRef.current?.(0);
+  };
 
   return (
     <section
       ref={sectionRef}
       onMouseMove={handleMouseMove}
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
+      onMouseLeave={handleMouseLeave}
       className="absolute z-50 size-full overflow-hidden rounded-lg"
-      style={{
-        perspective: "500px",
-      }}
     >
-      <div
-        ref={contentRef}
-        className="origin-center rounded-lg"
-        style={{
-          transformStyle: "preserve-3d",
-        }}
-      >
+      <div ref={contentRef} className="origin-center rounded-lg">
         {children}
       </div>
     </section>

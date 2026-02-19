@@ -1,4 +1,5 @@
 import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import { useRef } from "react";
 
 import Button from "./Button";
@@ -6,6 +7,30 @@ import AnimatedTitle from "./AnimatedTitle";
 
 const FloatingImage = () => {
   const frameRef = useRef(null);
+  const rotateXToRef = useRef(null);
+  const rotateYToRef = useRef(null);
+
+  useGSAP(
+    () => {
+      if (!frameRef.current) return;
+
+      gsap.set(frameRef.current, {
+        transformPerspective: 700,
+        transformStyle: "preserve-3d",
+        willChange: "transform",
+      });
+
+      rotateXToRef.current = gsap.quickTo(frameRef.current, "rotationX", {
+        duration: 0.35,
+        ease: "power3.out",
+      });
+      rotateYToRef.current = gsap.quickTo(frameRef.current, "rotationY", {
+        duration: 0.35,
+        ease: "power3.out",
+      });
+    },
+    { scope: frameRef }
+  );
 
   const handleMouseMove = (e) => {
     const { clientX, clientY } = e;
@@ -20,29 +45,19 @@ const FloatingImage = () => {
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
 
-    const rotateX = ((yPos - centerY) / centerY) * -10;
-    const rotateY = ((xPos - centerX) / centerX) * 10;
+    const relativeX = (xPos - centerX) / centerX;
+    const relativeY = (yPos - centerY) / centerY;
 
-    gsap.to(element, {
-      duration: 0.3,
-      rotateX,
-      rotateY,
-      transformPerspective: 500,
-      ease: "power1.inOut",
-    });
+    const clampedX = gsap.utils.clamp(-1, 1, relativeX);
+    const clampedY = gsap.utils.clamp(-1, 1, relativeY);
+
+    rotateXToRef.current?.(-clampedY * 10);
+    rotateYToRef.current?.(clampedX * 10);
   };
 
   const handleMouseLeave = () => {
-    const element = frameRef.current;
-
-    if (element) {
-      gsap.to(element, {
-        duration: 0.3,
-        rotateX: 0,
-        rotateY: 0,
-        ease: "power1.inOut",
-      });
-    }
+    rotateXToRef.current?.(0);
+    rotateYToRef.current?.(0);
   };
 
   return (
@@ -66,7 +81,6 @@ const FloatingImage = () => {
                   onMouseMove={handleMouseMove}
                   onMouseLeave={handleMouseLeave}
                   onMouseUp={handleMouseLeave}
-                  onMouseEnter={handleMouseLeave}
                   src="/img/entrance.webp"
                   alt="entrance.webp"
                   className="object-contain"

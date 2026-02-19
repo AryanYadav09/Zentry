@@ -1,38 +1,37 @@
 import { gsap } from "gsap";
-import { useEffect, useRef } from "react";
+import { useGSAP } from "@gsap/react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useRef } from "react";
 import clsx from "clsx";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const AnimatedTitle = ({ title, containerClass }) => {
+const AnimatedTitle = ({ title, containerClass = "" }) => {
   const containerRef = useRef(null);
 
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      const titleAnimation = gsap.timeline({
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: "100 bottom",
-          end: "center bottom",
-          toggleActions: "play none none reverse",
-        },
-      });
+  useGSAP(
+    () => {
+      const words = gsap.utils.toArray(".animated-word", containerRef.current);
+      if (!words.length) return;
 
-      titleAnimation.to(
-        ".animated-word",
+      gsap.to(
+        words,
         {
           opacity: 1,
           transform: "translate3d(0, 0, 0) rotateY(0deg) rotateX(0deg)",
-          ease: "power2.inOut",
-          stagger: 0.02,
-        },
-        0
+          ease: "power2.out",
+          duration: 0.9,
+          stagger: 0.025,
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: "top 80%",
+            toggleActions: "play none none reverse",
+          },
+        }
       );
-    }, containerRef);
-
-    return () => ctx.revert(); // Clean up on unmount
-  }, []);
+    },
+    { scope: containerRef }
+  );
 
   return (
     <div ref={containerRef} className={clsx("animated-title", containerClass)}>
